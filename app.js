@@ -46,24 +46,47 @@ function saveProgress() { store.set("tr-progress", state.progress); }
 
 /* ---------- speech ---------- */
 
+const NOVELTY = /Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Good News|Jester|Organ|Superstar|Trinoids|Whisper|Wobble|Zarvox|Junior|Ralph|Fred|Kathy|Grandma|Grandpa|Rocko|Shelley|Eddy|Flo|Reed|Sandy/;
+
+function voiceScore(v) {
+  let n = 0;
+  if (/premium/i.test(v.name)) n += 100;
+  if (/natural|neural|online/i.test(v.name)) n += 90;
+  if (/enhanced/i.test(v.name)) n += 80;
+  if (/google/i.test(v.name)) n += 60;
+  if (/Ava|Zoe|Evan|Nathan|Joelle|Noelle|Allison|Susan|Tom|Aria|Jenny|Guy/.test(v.name)) n += 30;
+  if (v.lang === "en-US" || v.lang === "en_US") n += 10;
+  return n;
+}
+
+function englishVoices() {
+  if (!("speechSynthesis" in window)) return [];
+  return speechSynthesis.getVoices()
+    .filter(v => /^en[-_]/.test(v.lang) && !NOVELTY.test(v.name))
+    .sort((a, b) => voiceScore(b) - voiceScore(a));
+}
+
 let voice = null;
+let speechRate = store.get("tr-rate", 1);
 function pickVoice() {
-  const voices = speechSynthesis.getVoices().filter(v => v.lang.startsWith("en"));
-  voice = ["Samantha", "Google US English", "Ava", "Allison"]
-    .map(name => voices.find(v => v.name.includes(name)))
-    .find(Boolean) || voices.find(v => v.lang === "en-US") || voices[0] || null;
+  const voices = englishVoices();
+  const saved = store.get("tr-voice", null);
+  voice = voices.find(v => v.voiceURI === saved) || voices[0] || null;
 }
 if ("speechSynthesis" in window) {
   pickVoice();
-  speechSynthesis.onvoiceschanged = pickVoice;
+  speechSynthesis.addEventListener("voiceschanged", () => {
+    pickVoice();
+    if (!$("#view-settings").hidden) renderSettings();
+  });
 }
 
 let currentUtterance = null;
-function speak(text, rate = 0.9) {
+function speak(text, factor = 1) {
   if (!("speechSynthesis" in window)) return;
   const u = new SpeechSynthesisUtterance(text.replace(/\.\.\./g, ", blank,").replace(/\(=\s*/g, ", meaning, ").replace(/\)/g, ""));
   u.lang = "en-US";
-  u.rate = rate;
+  u.rate = speechRate * factor;
   if (voice) u.voice = voice;
   // Chrome keeps a weak ref to the utterance; without this it can be GC'd mid-sentence.
   currentUtterance = u;
@@ -466,7 +489,7 @@ function renderQA() {
   root.querySelector("#prev").onclick = () => go(i - 1);
   root.querySelector("#next").onclick = () => go(i + 1);
   root.querySelector("#q-say").onclick = () => speak(p.q);
-  root.querySelector("#q-slow").onclick = () => speak(p.q, 0.7);
+  root.querySelector("#q-slow").onclick = () => speak(p.q, 0.75);
   root.querySelectorAll(".starter").forEach(b => b.onclick = () => speak(b.textContent));
 
   const markDone = () => {
@@ -507,8 +530,53 @@ function renderQA() {
     markDone();
   };
   root.querySelector("#a-say").onclick = () => speak(p.answer);
-  root.querySelector("#a-slow").onclick = () => speak(p.answer, 0.7);
+  root.querySelector("#a-slow").onclick = () => speak(p.answer, 0.75);
   root.querySelector("#a-shadow").onclick = e => practiceSpeak(e.currentTarget, p.answer, root.querySelector("#a-res"));
+}
+
+/* ---------- settings ---------- */
+
+const SAMPLE = "Hi, I'm Nari. Can I add something? I see what you mean, but I think it depends on the team.";
+
+function renderSettings() {
+  const root = $("#view-settings");
+  const voices = englishVoices();
+  root.innerHTML = `
+    <div class="card">
+      <h3>목소리</h3>
+      <p class="muted small">위쪽에 있을수록 자연스러운 목소리예요. 골라서 들어 보세요.</p>
+      ${voices.length ? `
+        <select id="voice" class="select">
+          ${voices.map(v => `<option value="${esc(v.voiceURI)}" ${voice && v.voiceURI === voice.voiceURI ? "selected" : ""}>${esc(v.name)} · ${esc(v.lang)}${voiceScore(v) >= 80 ? " ★" : ""}</option>`).join("")}
+        </select>
+      ` : `<p class="small">이 브라우저에서 영어 목소리를 찾지 못했어요.</p>`}
+      <h3 style="margin-top:16px">속도</h3>
+      <div class="chips">
+        ${[[0.85, "조금 느리게"], [1, "보통"], [1.1, "조금 빠르게"]].map(([r, label]) =>
+          `<button class="chip ${speechRate === r ? "active" : ""}" data-rate="${r}">${label}</button>`).join("")}
+      </div>
+      <button class="btn primary block" id="test">🔊 들어 보기</button>
+    </div>
+    <div class="card">
+      <h3>더 자연스러운 목소리 받기</h3>
+      <p class="small"><b>iPhone</b> · 설정 → 손쉬운 사용 → 읽기 및 말하기 → 음성 → 영어에서 <b>Ava, Zoe, Evan, Nathan</b> 중 하나를 골라 <b>프리미엄(또는 향상된)</b> 버전을 내려받으세요. 그다음 이 앱을 다시 열고 위 목록에서 고르면 돼요.</p>
+      <p class="small"><b>Android</b> · 설정 → 접근성 → 텍스트 음성 변환 → Google 음성 엔진에서 영어(미국) 음성 데이터를 설치하세요.</p>
+      <p class="small"><b>Mac</b> · 시스템 설정 → 손쉬운 사용 → 콘텐츠 읽기 → 시스템 목소리 → 목소리 관리에서 프리미엄 영어 목소리를 내려받으세요.</p>
+    </div>
+  `;
+  const sel = root.querySelector("#voice");
+  if (sel) sel.onchange = () => {
+    store.set("tr-voice", sel.value);
+    pickVoice();
+    speak(SAMPLE);
+  };
+  root.querySelectorAll("[data-rate]").forEach(b => b.onclick = () => {
+    speechRate = Number(b.dataset.rate);
+    store.set("tr-rate", speechRate);
+    renderSettings();
+    speak(SAMPLE);
+  });
+  root.querySelector("#test").onclick = () => speak(SAMPLE);
 }
 
 /* ---------- shell ---------- */
@@ -522,6 +590,14 @@ document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
   renderers[b.dataset.view]();
   window.scrollTo(0, 0);
 });
+
+$("#settings-toggle").onclick = () => {
+  if (activeRec) activeRec.stop();
+  document.querySelectorAll(".tabs button").forEach(x => x.classList.remove("active"));
+  document.querySelectorAll(".view").forEach(v => v.hidden = v.id !== "view-settings");
+  renderSettings();
+  window.scrollTo(0, 0);
+};
 
 $("#theme-toggle").onclick = () => {
   const root = document.documentElement;

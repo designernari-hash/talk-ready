@@ -81,6 +81,18 @@ main {
   padding: 8px 16px 24px;
 }
 
+.top-actions { display: flex; gap: 8px; }
+
+.select {
+  width: 100%;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
 .icon-btn {
   width: 40px;
   height: 40px;
