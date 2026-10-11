@@ -157,6 +157,7 @@ h3 { font-size: 1rem; margin: 0 0 4px; }
   font-weight: 600;
 }
 
+.btn:disabled { opacity: 0.4; cursor: default; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .btn.block { width: 100%; }
 .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }

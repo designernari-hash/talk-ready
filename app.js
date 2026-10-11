@@ -230,7 +230,7 @@ function startSession(pool, all) {
     const fresh = pool.filter(p => !state.progress[p.id]).slice(0, NEW_PER_SESSION);
     queue = [...shuffle(due), ...fresh];
   }
-  state.session = { queue, total: queue.length, done: 0, revealed: false };
+  state.session = { queue, total: queue.length, done: 0, revealed: false, history: [] };
   renderStudy();
 }
 
@@ -246,10 +246,28 @@ function rate(card, grade) {
     pr.box = grade === "easy" ? Math.min(pr.box + 1, INTERVALS.length - 1) : Math.max(pr.box, 1);
     pr.due = Date.now() + INTERVALS[pr.box] * DAY;
     s.done++;
+    s.history.push(card);
   }
   state.progress[card.id] = pr;
   saveProgress();
   s.revealed = false;
+  renderStudy();
+}
+
+function skip() {
+  const s = state.session;
+  s.history.push(s.queue.shift());
+  s.done++;
+  s.revealed = false;
+  renderStudy();
+}
+
+function back() {
+  const s = state.session;
+  if (!s.history.length) return;
+  s.queue.unshift(s.history.pop());
+  s.done--;
+  s.revealed = true;
   renderStudy();
 }
 
@@ -291,9 +309,15 @@ function renderFlashcard(root) {
         <button class="btn easy" data-grade="easy">알아요</button>
       </div>
     ` : `<button class="btn primary block" id="reveal">정답 보기</button>`}
+    <div class="btn-row" style="margin-top:8px">
+      <button class="btn" id="prev" ${s.history.length ? "" : "disabled"}>← 이전</button>
+      <button class="btn" id="next">다음 →</button>
+    </div>
   `;
 
   root.querySelector("#quit").onclick = () => { state.session = null; renderStudy(); };
+  root.querySelector("#prev").onclick = back;
+  root.querySelector("#next").onclick = skip;
   if (s.revealed) {
     speak(card.en);
     root.querySelector("#say").onclick = () => speak(card.en);
