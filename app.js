@@ -16,6 +16,13 @@ const store = {
   }
 };
 
+// Bump when phrase texts change so old progress doesn't attach to different sentences.
+const CONTENT_VERSION = 2;
+if (store.get("tr-content", 1) !== CONTENT_VERSION) {
+  store.set("tr-progress", {});
+  store.set("tr-content", CONTENT_VERSION);
+}
+
 const state = {
   progress: store.get("tr-progress", {}),
   stars: new Set(store.get("tr-stars", [])),
@@ -54,7 +61,7 @@ if ("speechSynthesis" in window) {
 let currentUtterance = null;
 function speak(text, rate = 0.9) {
   if (!("speechSynthesis" in window)) return;
-  const u = new SpeechSynthesisUtterance(text.replace(/\.\.\./g, ", blank,"));
+  const u = new SpeechSynthesisUtterance(text.replace(/\.\.\./g, ", blank,").replace(/\(=\s*/g, ", meaning, ").replace(/\)/g, ""));
   u.lang = "en-US";
   u.rate = rate;
   if (voice) u.voice = voice;
