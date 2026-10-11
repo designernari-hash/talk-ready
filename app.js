@@ -237,6 +237,7 @@ function startSession(pool, all) {
 function rate(card, grade) {
   const pr = state.progress[card.id] || { box: 0, due: 0 };
   const s = state.session;
+  s.queue.shift();
   if (grade === "again") {
     pr.box = 0;
     pr.due = Date.now();
@@ -254,7 +255,7 @@ function rate(card, grade) {
 
 function renderFlashcard(root) {
   const s = state.session;
-  const card = s.queue.shift();
+  const card = s.queue[0];
 
   if (!card) {
     state.session = null;
@@ -267,7 +268,6 @@ function renderFlashcard(root) {
     root.querySelector("#home").onclick = renderStudy;
     return;
   }
-  s.queue.unshift(card);
 
   root.innerHTML = `
     <button class="back" id="quit">← 그만하기</button>
