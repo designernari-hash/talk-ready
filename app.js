@@ -82,9 +82,14 @@ if ("speechSynthesis" in window) {
 }
 
 let currentUtterance = null;
-function speak(text, factor = 1) {
+const player = new Audio();
+player.preload = "auto";
+
+const speechText = text => text.replace(/\.\.\./g, ", blank,").replace(/\(=\s*/g, ", meaning, ").replace(/\)/g, "");
+
+function speakTTS(line, factor) {
   if (!("speechSynthesis" in window)) return;
-  const u = new SpeechSynthesisUtterance(text.replace(/\.\.\./g, ", blank,").replace(/\(=\s*/g, ", meaning, ").replace(/\)/g, ""));
+  const u = new SpeechSynthesisUtterance(line);
   u.lang = "en-US";
   u.rate = speechRate * factor;
   if (voice) u.voice = voice;
@@ -97,6 +102,17 @@ function speak(text, factor = 1) {
   } else {
     speechSynthesis.speak(u);
   }
+}
+
+function speak(text, factor = 1) {
+  const line = speechText(text);
+  const id = AUDIO[line];
+  player.pause();
+  if ("speechSynthesis" in window && speechSynthesis.speaking) speechSynthesis.cancel();
+  if (!id) return speakTTS(line, factor);
+  player.src = `audio/${id}.mp3`;
+  player.playbackRate = speechRate * factor;
+  player.play().catch(() => speakTTS(line, factor));
 }
 
 const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -544,7 +560,7 @@ function renderSettings() {
   root.innerHTML = `
     <div class="card">
       <h3>목소리</h3>
-      <p class="muted small">위쪽에 있을수록 자연스러운 목소리예요. 골라서 들어 보세요.</p>
+      <p class="muted small">모든 표현과 답변은 원어민 AI 녹음(Jessica)으로 재생돼요. 아래 목록은 녹음이 없는 문장에만 쓰이는 기기 목소리예요.</p>
       ${voices.length ? `
         <select id="voice" class="select">
           ${voices.map(v => `<option value="${esc(v.voiceURI)}" ${voice && v.voiceURI === voice.voiceURI ? "selected" : ""}>${esc(v.name)} · ${esc(v.lang)}${voiceScore(v) >= 80 ? " ★" : ""}</option>`).join("")}
