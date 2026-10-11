@@ -1,0 +1,9 @@
+{
+  "name": "Talk Ready",
+  "short_name": "Talk Ready",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#fafaf8",
+  "theme_color": "#2f5bd3",
+  "icons": [{ "src": "icon.png", "sizes": "512x512", "type": "image/png" }]
+}
